@@ -1,0 +1,18 @@
+[Unit]
+Description=Ecommerce Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/ecommerce-backend
+ExecStart=/var/www/ecommerce-backend/ecommerce-backend
+Restart=always
+RestartSec=5
+Environment=PORT=8080
+Environment=MONGODB_URI=mongodb://localhost:27017
+Environment=DATABASE_NAME=ecommerce
+Environment=JWT_SECRET=your-super-secret-jwt-key-here
+
+[Install]
+WantedBy=multi-user.target
