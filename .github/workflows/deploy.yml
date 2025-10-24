@@ -49,25 +49,36 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          # Create directory if it doesn't exist
-          mkdir -p /var/www/ecommerce-backend
+          # Create directory if it doesn't exist (aaPanel structure)
+          sudo mkdir -p /www/wwwroot/ecommerce-backend
+          sudo chown -R www:www /www/wwwroot/ecommerce-backend
           
           # Stop the existing service
           sudo systemctl stop ecommerce-backend || true
           
           # Backup current binary
-          if [ -f /var/www/ecommerce-backend/ecommerce-backend ]; then
-            sudo mv /var/www/ecommerce-backend/ecommerce-backend /var/www/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
+          if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
           fi
           
           # Copy new binary
-          sudo cp ecommerce-backend /var/www/ecommerce-backend/
-          sudo chmod +x /var/www/ecommerce-backend/ecommerce-backend
+          sudo cp ecommerce-backend /www/wwwroot/ecommerce-backend/
+          sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
+          sudo chown www:www /www/wwwroot/ecommerce-backend/ecommerce-backend
           
           # Copy environment file if it doesn't exist
-          if [ ! -f /var/www/ecommerce-backend/.env ]; then
-            sudo cp env.example /var/www/ecommerce-backend/.env
+          if [ ! -f /www/wwwroot/ecommerce-backend/.env ]; then
+            sudo cp env.example /www/wwwroot/ecommerce-backend/.env
+            sudo chown www:www /www/wwwroot/ecommerce-backend/.env
           fi
+          
+          # Update environment for production
+          sudo sed -i 's/MONGODB_URI=mongodb:\/\/localhost:27017/MONGODB_URI=mongodb:\/\/localhost:27017/' /www/wwwroot/ecommerce-backend/.env
+          sudo sed -i 's/PORT=8080/PORT=8080/' /www/wwwroot/ecommerce-backend/.env
+          sudo sed -i 's/JWT_SECRET=your-super-secret-jwt-key-here/JWT_SECRET=production-secret-key-change-this/' /www/wwwroot/ecommerce-backend/.env
+          
+          # Set proper permissions
+          sudo chown -R www:www /www/wwwroot/ecommerce-backend
           
           # Start the service
           sudo systemctl start ecommerce-backend
@@ -75,3 +86,7 @@ jobs:
           
           # Check service status
           sudo systemctl status ecommerce-backend
+          
+          # Test the API
+          sleep 5
+          curl -f http://localhost:8080/health || echo "Health check failed"
