@@ -2,6 +2,8 @@
 
 A modern Go-based backend API for ecommerce applications with JWT authentication, role-based access control, and production-ready features.
 
+> Last updated: 2025-10-26 - Added simplified login response (token + role only)
+
 ## 🏗️ Project Structure
 
 This project follows modern Go conventions with a clean, scalable architecture:
