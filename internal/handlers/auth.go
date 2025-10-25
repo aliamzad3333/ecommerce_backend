@@ -52,6 +52,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Set default role if not provided
+	role := models.RoleUser
+	if req.Role != nil && req.Role.IsValid() {
+		role = *req.Role
+	}
+
 	// Create user
 	user := models.User{
 		ID:        primitive.NewObjectID(),
@@ -59,7 +65,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Role:      models.RoleUser,
+		Role:      role,
 		IsActive:  true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -124,9 +130,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, models.AuthResponse{
+	c.JSON(http.StatusOK, models.LoginResponse{
 		Token: token,
-		User:  user.ToResponse(),
+		Role:  user.Role,
 	})
 }
 

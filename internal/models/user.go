@@ -43,6 +43,7 @@ type RegisterRequest struct {
 	Password  string `json:"password" validate:"required,min=6"`
 	FirstName string `json:"first_name" validate:"required,min=2,max=50"`
 	LastName  string `json:"last_name" validate:"required,min=2,max=50"`
+	Role      *Role  `json:"role,omitempty" validate:"omitempty,oneof=user admin"`
 }
 
 // LoginRequest represents the request payload for user login
@@ -55,6 +56,12 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token string       `json:"token"`
 	User  UserResponse `json:"user"`
+}
+
+// LoginResponse represents the response payload for login (token and role only)
+type LoginResponse struct {
+	Token string `json:"token"`
+	Role  Role   `json:"role"`
 }
 
 // UserResponse represents a user response without sensitive data
