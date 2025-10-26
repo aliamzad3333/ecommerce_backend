@@ -50,7 +50,6 @@ jobs:
         port: ${{ secrets.PORT }}
         source: "ecommerce-backend"
         target: "/www/wwwroot/ecommerce-backend/"
-        strip_components: 1
     
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
@@ -62,7 +61,6 @@ jobs:
         script: |
           # Create directory if it doesn't exist (aaPanel structure)
           sudo mkdir -p /www/wwwroot/ecommerce-backend
-          sudo chown -R www:www /www/wwwroot/ecommerce-backend
           
           # Stop the existing service
           sudo systemctl stop ecommerce-backend || true
@@ -72,7 +70,11 @@ jobs:
             sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
           fi
           
+          # Move the uploaded binary to the correct location
+          sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend
+          
           # Set proper permissions
+          sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
           sudo chown -R www:www /www/wwwroot/ecommerce-backend
           
           # Start the service
