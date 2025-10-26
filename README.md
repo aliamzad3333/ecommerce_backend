@@ -108,7 +108,7 @@ WRITE_TIMEOUT=10s
 IDLE_TIMEOUT=120s
 
 # Database Configuration
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://admin:SecureMongoDB123!@localhost:27017
 DATABASE_NAME=ecommerce
 DB_TIMEOUT=10s
 DB_MAX_POOL_SIZE=100

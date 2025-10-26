@@ -27,7 +27,7 @@ ExecStart=/www/wwwroot/ecommerce-backend/ecommerce-backend
 Restart=always
 RestartSec=5
 Environment=PORT=8080
-Environment=MONGODB_URI=mongodb://localhost:27017
+Environment=MONGODB_URI=mongodb://admin:SecureMongoDB123!@localhost:27017
 Environment=DATABASE_NAME=ecommerce
 Environment=JWT_SECRET=production-secret-key-change-this
 Environment=ENV=production
@@ -43,7 +43,7 @@ sudo systemctl enable ecommerce-backend
 # Create environment file
 echo "📝 Creating environment file..."
 sudo tee /www/wwwroot/ecommerce-backend/.env > /dev/null <<EOF
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://admin:SecureMongoDB123!@localhost:27017
 DATABASE_NAME=ecommerce
 JWT_SECRET=production-secret-key-change-this
 PORT=8080
