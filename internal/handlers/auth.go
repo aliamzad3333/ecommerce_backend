@@ -55,13 +55,19 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Set default role if not provided
 	role := models.RoleUser
 	if req.Role != nil {
+		h.logger.Info("Role provided in request", "role", *req.Role, "isValid", req.Role.IsValid())
 		if req.Role.IsValid() {
 			role = *req.Role
 		} else {
 			// If invalid role provided, use default
 			role = models.RoleUser
 		}
+	} else {
+		h.logger.Info("No role provided in request, using default")
+		// If no role provided, use default
+		role = models.RoleUser
 	}
+	h.logger.Info("Final role assigned", "role", role)
 
 	// Create user
 	user := models.User{
