@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -55,13 +56,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Set default role if not provided
 	role := models.RoleUser
 	if req.Role != nil {
+		// Debug: Print what we received
+		fmt.Printf("DEBUG: Received role: %v, IsValid: %v\n", *req.Role, req.Role.IsValid())
 		if req.Role.IsValid() {
 			role = *req.Role
 		} else {
 			// If invalid role provided, use default
 			role = models.RoleUser
 		}
+	} else {
+		fmt.Printf("DEBUG: No role provided in request\n")
 	}
+	fmt.Printf("DEBUG: Final role assigned: %v\n", role)
 
 	// Create user
 	user := models.User{
