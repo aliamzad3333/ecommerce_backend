@@ -19,6 +19,11 @@ import (
 func TestAuthHandler_Register(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	// If no MongoDB is configured, skip Register tests to avoid nil DB panics
+	if os.Getenv("MONGODB_URI") == "" {
+		t.Skip("Skipping Register handler tests without MongoDB")
+	}
+
 	tests := []struct {
 		name           string
 		requestBody    interface{}
@@ -60,6 +65,8 @@ func TestAuthHandler_Register(t *testing.T) {
 			if os.Getenv("CI") == "true" {
 				t.Skip("Skipping database-dependent tests in CI")
 			}
+
+			// (no-op; DB required for these tests)
 
 			// Setup
 			w := httptest.NewRecorder()

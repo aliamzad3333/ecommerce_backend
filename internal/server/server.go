@@ -50,9 +50,10 @@ func New() (*Server, error) {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(db, jwtManager)
+	productHandler := handlers.NewProductHandler(db)
 
 	// Setup router
-	router := setupRouter(cfg, log, authHandler, jwtManager)
+	router := setupRouter(cfg, log, authHandler, productHandler, jwtManager)
 
 	return &Server{
 		config: cfg,
@@ -63,7 +64,7 @@ func New() (*Server, error) {
 }
 
 // setupRouter configures the HTTP router
-func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, jwtManager *utils.JWTManager) *gin.Engine {
+func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, jwtManager *utils.JWTManager) *gin.Engine {
 	// Set Gin mode
 	if cfg.Server.Port == "8080" {
 		gin.SetMode(gin.DebugMode)
@@ -83,6 +84,9 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "timestamp": time.Now()})
 	})
 
+	// Serve static files for uploaded images
+	router.Static("/uploads", "./uploads")
+
 	// API routes
 	api := router.Group("/api")
 	{
@@ -93,12 +97,35 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 			auth.POST("/login", authHandler.Login)
 		}
 
+		// Public product routes
+		products := api.Group("/products")
+		{
+			products.GET("/categories", productHandler.GetCategories) // GET /api/products/categories (must be before /:id)
+			products.GET("", productHandler.GetProducts)              // GET /api/products
+			products.GET("/:id", productHandler.GetProduct)           // GET /api/products/:id
+		}
+
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			protected.GET("/profile", authHandler.GetProfile)
-			protected.GET("/admin/dashboard", middleware.AdminMiddleware(), authHandler.AdminDashboard)
+
+			// Admin routes
+			admin := protected.Group("/admin")
+			admin.Use(middleware.AdminMiddleware())
+			{
+				admin.GET("/dashboard", authHandler.AdminDashboard)
+
+				// Admin product management
+				adminProducts := admin.Group("/products")
+				{
+					adminProducts.POST("", productHandler.CreateProduct)                // POST /api/admin/products
+					adminProducts.PUT("/:id", productHandler.UpdateProduct)             // PUT /api/admin/products/:id
+					adminProducts.DELETE("/:id", productHandler.DeleteProduct)          // DELETE /api/admin/products/:id
+					adminProducts.POST("/:id/image", productHandler.UploadProductImage) // POST /api/admin/products/:id/image
+				}
+			}
 		}
 	}
 
