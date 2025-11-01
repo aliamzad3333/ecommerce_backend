@@ -49,7 +49,8 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         source: "ecommerce-backend"
-        target: "/www/wwwroot/ecommerce-backend/ecommerce-backend.new"
+        target: "/www/wwwroot/ecommerce-backend/"
+        strip_components: 0
     
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
@@ -66,34 +67,69 @@ jobs:
           mkdir -p /www/wwwroot/ecommerce-backend || sudo mkdir -p /www/wwwroot/ecommerce-backend
           
           # Wait a moment for scp to complete
-          sleep 2
+          sleep 3
           
           # Stop the existing service first
           sudo systemctl stop ecommerce-backend || true
           
-          # Debug: List files in target directory
-          echo "=== Files in deployment directory ==="
+          # Clean up any leftover .new directory from previous failed deployments
+          if [ -d /www/wwwroot/ecommerce-backend/ecommerce-backend.new ]; then
+            echo "Removing leftover directory from previous deployment..."
+            # Check if file is inside the directory first
+            if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend.new/ecommerce-backend ]; then
+              echo "Found file inside directory, extracting it..."
+              sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend.new/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.tmp
+              sudo rm -rf /www/wwwroot/ecommerce-backend/ecommerce-backend.new
+              sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend.tmp /www/wwwroot/ecommerce-backend/ecommerce-backend
+              echo "✅ Extracted file from directory"
+            else
+              sudo rm -rf /www/wwwroot/ecommerce-backend/ecommerce-backend.new
+            fi
+          fi
+          
+          # Debug: List files in target directory BEFORE backup
+          echo "=== Files in deployment directory (before backup) ==="
           ls -la /www/wwwroot/ecommerce-backend/ || sudo ls -la /www/wwwroot/ecommerce-backend/
           
-          # Check for the NEWLY uploaded binary (uploaded with .new extension)
-          if [ ! -f /www/wwwroot/ecommerce-backend/ecommerce-backend.new ]; then
-            echo "ERROR: New binary file not found at /www/wwwroot/ecommerce-backend/ecommerce-backend.new"
+          # Find the most recently modified ecommerce-backend file (should be the uploaded one)
+          RECENT_FILE=$(find /www/wwwroot/ecommerce-backend -maxdepth 1 -name "ecommerce-backend" -type f -mmin -10 | head -1)
+          
+          # Backup existing binary if it exists and is NOT the recently uploaded one
+          if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            if [ -n "$RECENT_FILE" ] && [ "$RECENT_FILE" = "/www/wwwroot/ecommerce-backend/ecommerce-backend" ]; then
+              echo "File appears to be newly uploaded (recent modification). Backing up any old backup files..."
+            else
+              echo "Backing up existing binary..."
+              sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
+            fi
+          fi
+          
+          # Check for uploaded binary
+          sleep 1
+          
+          if [ ! -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            echo "ERROR: Binary file not found after upload"
             echo "Checking what files exist..."
             ls -la /www/wwwroot/ecommerce-backend/ || sudo ls -la /www/wwwroot/ecommerce-backend/
+            echo "Checking for recently modified files..."
+            find /www/wwwroot/ecommerce-backend -maxdepth 1 -type f -mmin -10 2>/dev/null || echo "No recent files found"
             exit 1
           fi
           
-          echo "✅ New binary found, backing up old one..."
-          
-          # Backup current binary if it exists
-          if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
-            echo "Backing up existing binary..."
-            sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
+          # Verify it's actually a file and check size
+          if [ ! -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            echo "ERROR: Path exists but is not a regular file"
+            file /www/wwwroot/ecommerce-backend/ecommerce-backend 2>/dev/null || echo "Cannot determine file type"
+            exit 1
           fi
           
-          # Move new binary to final location
-          echo "Moving new binary to final location..."
-          sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend.new /www/wwwroot/ecommerce-backend/ecommerce-backend
+          # Check file size (should be > 1MB for a Go binary)
+          FILE_SIZE=$(stat -f%z /www/wwwroot/ecommerce-backend/ecommerce-backend 2>/dev/null || stat -c%s /www/wwwroot/ecommerce-backend/ecommerce-backend 2>/dev/null || echo "0")
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "WARNING: File size is suspiciously small ($FILE_SIZE bytes). Expected > 1MB for binary."
+          else
+            echo "✅ Binary file found (size: $FILE_SIZE bytes)"
+          fi
           
           # Set permissions
           echo "Setting permissions..."
