@@ -49,7 +49,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         source: "ecommerce-backend"
-        target: "/www/wwwroot/ecommerce-backend/"
+        target: "/www/wwwroot/ecommerce-backend/ecommerce-backend.new"
     
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
@@ -59,26 +59,59 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          # Create directory if it doesn't exist (aaPanel structure)
-          sudo mkdir -p /www/wwwroot/ecommerce-backend
+          # Suppress hostname warning (harmless)
+          export DEBIAN_FRONTEND=noninteractive
           
-          # Stop the existing service
+          # Create directory if it doesn't exist (aaPanel structure)
+          mkdir -p /www/wwwroot/ecommerce-backend || sudo mkdir -p /www/wwwroot/ecommerce-backend
+          
+          # Wait a moment for scp to complete
+          sleep 2
+          
+          # Stop the existing service first
           sudo systemctl stop ecommerce-backend || true
           
-          # Backup current binary
+          # Debug: List files in target directory
+          echo "=== Files in deployment directory ==="
+          ls -la /www/wwwroot/ecommerce-backend/ || sudo ls -la /www/wwwroot/ecommerce-backend/
+          
+          # Check for the NEWLY uploaded binary (uploaded with .new extension)
+          if [ ! -f /www/wwwroot/ecommerce-backend/ecommerce-backend.new ]; then
+            echo "ERROR: New binary file not found at /www/wwwroot/ecommerce-backend/ecommerce-backend.new"
+            echo "Checking what files exist..."
+            ls -la /www/wwwroot/ecommerce-backend/ || sudo ls -la /www/wwwroot/ecommerce-backend/
+            exit 1
+          fi
+          
+          echo "✅ New binary found, backing up old one..."
+          
+          # Backup current binary if it exists
           if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            echo "Backing up existing binary..."
             sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
           fi
           
-          # The binary was uploaded to /www/wwwroot/ecommerce-backend/ by scp-action
-          # Verify the binary exists and set permissions
-          if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
-            sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
-            sudo chown www:www /www/wwwroot/ecommerce-backend/ecommerce-backend
-          else
-            echo "ERROR: Binary file not found after upload!"
+          # Move new binary to final location
+          echo "Moving new binary to final location..."
+          sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend.new /www/wwwroot/ecommerce-backend/ecommerce-backend
+          
+          # Set permissions
+          echo "Setting permissions..."
+          sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
+          sudo chown www:www /www/wwwroot/ecommerce-backend/ecommerce-backend
+          
+          # Verify it's executable and exists
+          if [ ! -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            echo "ERROR: Binary file missing after move"
             exit 1
           fi
+          
+          if [ ! -x /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            echo "ERROR: Binary is not executable after chmod"
+            exit 1
+          fi
+          
+          echo "✅ Binary is ready"
           
           # Ensure uploads directory exists with proper permissions
           sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/products
