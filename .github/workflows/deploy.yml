@@ -70,20 +70,44 @@ jobs:
             sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend.backup.$(date +%Y%m%d_%H%M%S)
           fi
           
-          # Move the uploaded binary to the correct location
-          sudo mv /www/wwwroot/ecommerce-backend/ecommerce-backend /www/wwwroot/ecommerce-backend/ecommerce-backend
+          # The binary was uploaded to /www/wwwroot/ecommerce-backend/ by scp-action
+          # Verify the binary exists and set permissions
+          if [ -f /www/wwwroot/ecommerce-backend/ecommerce-backend ]; then
+            sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
+            sudo chown www:www /www/wwwroot/ecommerce-backend/ecommerce-backend
+          else
+            echo "ERROR: Binary file not found after upload!"
+            exit 1
+          fi
           
-          # Set proper permissions
-          sudo chmod +x /www/wwwroot/ecommerce-backend/ecommerce-backend
-          sudo chown -R www:www /www/wwwroot/ecommerce-backend
+          # Ensure uploads directory exists with proper permissions
+          sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/products
+          sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/slider
+          sudo chown -R www:www /www/wwwroot/ecommerce-backend/uploads
           
-          # Start the service
-          sudo systemctl start ecommerce-backend
+          # Restart the service (restart handles stop+start better)
+          sudo systemctl restart ecommerce-backend
           sudo systemctl enable ecommerce-backend
           
-          # Check service status
-          sudo systemctl status ecommerce-backend
+          # Wait for service to fully start
+          sleep 3
           
-          # Test the API
-          sleep 5
-          curl -f http://localhost:8080/health || echo "Health check failed"
+          # Check service status
+          sudo systemctl is-active ecommerce-backend || {
+            echo "Service failed to start. Checking logs:"
+            sudo journalctl -u ecommerce-backend -n 20 --no-pager
+            exit 1
+          }
+          
+          # Test the API with retries
+          for i in {1..5}; do
+            sleep 2
+            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✅ Health check passed"
+              break
+            fi
+            echo "Attempt $i: Health check failed, retrying..."
+          done
+          
+          # Final status check
+          sudo systemctl status ecommerce-backend --no-pager -l

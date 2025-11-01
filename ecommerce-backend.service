@@ -1,0 +1,30 @@
+[Unit]
+Description=Ecommerce Backend API
+After=network.target mongod.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/ecommerce-backend
+ExecStart=/www/wwwroot/ecommerce-backend/ecommerce-backend
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ecommerce-backend
+
+# Environment variables (adjust as needed)
+Environment="PORT=8080"
+Environment="MONGODB_URI=mongodb://admin:SecureMongoDB123!@localhost:27017"
+Environment="DATABASE_NAME=ecommerce"
+Environment="JWT_SECRET=your-production-jwt-secret-here"
+Environment="JWT_EXPIRATION=24h"
+Environment="ENV=production"
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
