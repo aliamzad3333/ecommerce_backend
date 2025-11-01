@@ -51,9 +51,10 @@ func New() (*Server, error) {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(db, jwtManager)
 	productHandler := handlers.NewProductHandler(db)
+	sliderHandler := handlers.NewSliderHandler(db)
 
 	// Setup router
-	router := setupRouter(cfg, log, authHandler, productHandler, jwtManager)
+	router := setupRouter(cfg, log, authHandler, productHandler, sliderHandler, jwtManager)
 
 	return &Server{
 		config: cfg,
@@ -64,7 +65,7 @@ func New() (*Server, error) {
 }
 
 // setupRouter configures the HTTP router
-func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, jwtManager *utils.JWTManager) *gin.Engine {
+func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, sliderHandler *handlers.SliderHandler, jwtManager *utils.JWTManager) *gin.Engine {
 	// Set Gin mode
 	if cfg.Server.Port == "8080" {
 		gin.SetMode(gin.DebugMode)
@@ -105,6 +106,9 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 			products.GET("/:id", productHandler.GetProduct)           // GET /api/products/:id
 		}
 
+		// Public slider routes
+		api.GET("/sliders", sliderHandler.GetSliders) // GET /api/sliders (returns active slides with settings)
+
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(jwtManager))
@@ -124,6 +128,21 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 					adminProducts.PUT("/:id", productHandler.UpdateProduct)             // PUT /api/admin/products/:id
 					adminProducts.DELETE("/:id", productHandler.DeleteProduct)          // DELETE /api/admin/products/:id
 					adminProducts.POST("/:id/image", productHandler.UploadProductImage) // POST /api/admin/products/:id/image
+				}
+
+				// Admin slider management
+				adminSliders := admin.Group("/sliders")
+				{
+					adminSliders.GET("", sliderHandler.GetAllSliders)           // GET /api/admin/sliders (list all images)
+					adminSliders.POST("/image", sliderHandler.UploadSliderImage) // POST /api/admin/sliders/image (upload image)
+					adminSliders.DELETE("/:id", sliderHandler.DeleteSlider)     // DELETE /api/admin/sliders/:id (delete image)
+				}
+
+				// Admin slider settings
+				adminSettings := admin.Group("/slider-settings")
+				{
+					adminSettings.GET("", sliderHandler.GetSliderSettings)    // GET /api/admin/slider-settings
+					adminSettings.PUT("", sliderHandler.UpdateSliderSettings) // PUT /api/admin/slider-settings
 				}
 			}
 		}
