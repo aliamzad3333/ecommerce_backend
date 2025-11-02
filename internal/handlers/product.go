@@ -453,14 +453,7 @@ func (h *ProductHandler) UploadProductImage(c *gin.Context) {
 		// Log error but still return success since UpdateOne succeeded
 		// The image is saved and database update was confirmed
 		fullImageURL := imageURL
-		baseURL := getBaseURL(c)
-		if baseURL != "" && imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
-			if strings.HasPrefix(imageURL, "/") {
-				fullImageURL = baseURL + imageURL
-			} else {
-				fullImageURL = baseURL + "/" + imageURL
-			}
-		}
+		// Return relative URL (frontend will proxy)
 		c.JSON(http.StatusOK, gin.H{
 			"message":   "Image uploaded successfully",
 			"image_url": fullImageURL,
@@ -476,14 +469,12 @@ func (h *ProductHandler) UploadProductImage(c *gin.Context) {
 		return
 	}
 
-	// Return full URL for the image
+	// Return relative URL for the image (frontend will proxy)
 	fullImageURL := updatedProduct.ImageURL
-	baseURL := getBaseURL(c)
-	if baseURL != "" && fullImageURL != "" && !strings.HasPrefix(fullImageURL, "http://") && !strings.HasPrefix(fullImageURL, "https://") {
-		if strings.HasPrefix(fullImageURL, "/") {
-			fullImageURL = baseURL + fullImageURL
-		} else {
-			fullImageURL = baseURL + "/" + fullImageURL
+	// Strip absolute URL if present
+	if strings.HasPrefix(fullImageURL, "http://") || strings.HasPrefix(fullImageURL, "https://") {
+		if idx := strings.Index(fullImageURL, "/uploads"); idx >= 0 {
+			fullImageURL = fullImageURL[idx:]
 		}
 	}
 
@@ -511,7 +502,15 @@ func (h *ProductHandler) GetCategories(c *gin.Context) {
 // Helper functions
 
 // getBaseURL extracts the base URL from the request context
+// Returns empty string to use relative URLs (frontend will handle the base URL)
 func getBaseURL(c *gin.Context) string {
+	// Return empty string for relative URLs - frontend will proxy /uploads requests
+	// This works better with frontend dev servers and production behind nginx
+	return ""
+	
+	// If you need absolute URLs (e.g., for API documentation or external access),
+	// uncomment the code below:
+	/*
 	scheme := "http"
 	if c.GetHeader("X-Forwarded-Proto") == "https" || c.Request.TLS != nil {
 		scheme = "https"
@@ -524,6 +523,7 @@ func getBaseURL(c *gin.Context) string {
 		host = "localhost:8080" // fallback
 	}
 	return fmt.Sprintf("%s://%s", scheme, host)
+	*/
 }
 
 // isValidImageType checks if the file has a valid image extension

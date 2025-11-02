@@ -74,14 +74,29 @@ func (s *Slider) ToResponse() SliderResponse {
 // ToResponseWithBaseURL converts a Slider to SliderResponse with full image URL
 func (s *Slider) ToResponseWithBaseURL(baseURL string) SliderResponse {
 	imageURL := s.ImageURL
-	// Convert relative URL to full URL if base URL is provided
-	if baseURL != "" && imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
-		if strings.HasPrefix(imageURL, "/") {
-			imageURL = baseURL + imageURL
-		} else {
-			imageURL = baseURL + "/" + imageURL
+	// Strip any existing absolute URLs to always return relative paths
+	// This ensures frontend can proxy requests correctly
+	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
+		// Extract the path from absolute URL
+		if idx := strings.Index(imageURL, "/uploads"); idx >= 0 {
+			imageURL = imageURL[idx:]
+		} else if idx := strings.Index(imageURL, "://"); idx >= 0 {
+			// Fallback: try to find path after domain
+			parts := strings.SplitN(imageURL[idx+3:], "/", 2)
+			if len(parts) > 1 {
+				imageURL = "/" + parts[1]
+			}
 		}
 	}
+	
+	// Only add base URL if explicitly needed (currently returning relative URLs)
+	// if baseURL != "" && imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+	// 	if strings.HasPrefix(imageURL, "/") {
+	// 		imageURL = baseURL + imageURL
+	// 	} else {
+	// 		imageURL = baseURL + "/" + imageURL
+	// 	}
+	// }
 
 	return SliderResponse{
 		ID:        s.ID.Hex(),

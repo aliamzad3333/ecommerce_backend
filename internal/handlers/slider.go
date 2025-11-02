@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"ecommerce-backend/internal/database"
@@ -115,20 +114,10 @@ func (h *SliderHandler) UploadSliderImage(c *gin.Context) {
 		return
 	}
 
-	// Return full URL
-	fullImageURL := slider.ImageURL
-	baseURL := getBaseURL(c)
-	if baseURL != "" && fullImageURL != "" && !strings.HasPrefix(fullImageURL, "http://") && !strings.HasPrefix(fullImageURL, "https://") {
-		if strings.HasPrefix(fullImageURL, "/") {
-			fullImageURL = baseURL + fullImageURL
-		} else {
-			fullImageURL = baseURL + "/" + fullImageURL
-		}
-	}
-
+	// Return relative URL (frontend will proxy)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Image uploaded successfully",
-		"slider":  slider.ToResponseWithBaseURL(baseURL),
+		"slider":  slider.ToResponseWithBaseURL(""),
 	})
 }
 
