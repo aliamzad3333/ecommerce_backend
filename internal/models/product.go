@@ -110,14 +110,29 @@ func (p *Product) ToResponse() ProductResponse {
 // ToResponseWithBaseURL converts a Product to ProductResponse with a base URL for images
 func (p *Product) ToResponseWithBaseURL(baseURL string) ProductResponse {
 	imageURL := p.ImageURL
-	// Convert relative URL to full URL if base URL is provided and image URL is relative
-	if baseURL != "" && imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
-		if strings.HasPrefix(imageURL, "/") {
-			imageURL = baseURL + imageURL
-		} else {
-			imageURL = baseURL + "/" + imageURL
+	// Strip any existing absolute URLs to always return relative paths
+	// This ensures frontend can proxy requests correctly
+	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
+		// Extract the path from absolute URL
+		if idx := strings.Index(imageURL, "/uploads"); idx >= 0 {
+			imageURL = imageURL[idx:]
+		} else if idx := strings.Index(imageURL, "://"); idx >= 0 {
+			// Fallback: try to find path after domain
+			parts := strings.SplitN(imageURL[idx+3:], "/", 2)
+			if len(parts) > 1 {
+				imageURL = "/" + parts[1]
+			}
 		}
 	}
+	
+	// Only add base URL if explicitly needed (currently returning relative URLs)
+	// if baseURL != "" && imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+	// 	if strings.HasPrefix(imageURL, "/") {
+	// 		imageURL = baseURL + imageURL
+	// 	} else {
+	// 		imageURL = baseURL + "/" + imageURL
+	// 	}
+	// }
 
 	return ProductResponse{
 		ID:            p.ID.Hex(),

@@ -52,9 +52,10 @@ func New() (*Server, error) {
 	authHandler := handlers.NewAuthHandler(db, jwtManager)
 	productHandler := handlers.NewProductHandler(db)
 	sliderHandler := handlers.NewSliderHandler(db)
+	orderHandler := handlers.NewOrderHandler(db, jwtManager)
 
 	// Setup router
-	router := setupRouter(cfg, log, authHandler, productHandler, sliderHandler, jwtManager)
+	router := setupRouter(cfg, log, authHandler, productHandler, sliderHandler, orderHandler, jwtManager)
 
 	return &Server{
 		config: cfg,
@@ -65,7 +66,7 @@ func New() (*Server, error) {
 }
 
 // setupRouter configures the HTTP router
-func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, sliderHandler *handlers.SliderHandler, jwtManager *utils.JWTManager) *gin.Engine {
+func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, sliderHandler *handlers.SliderHandler, orderHandler *handlers.OrderHandler, jwtManager *utils.JWTManager) *gin.Engine {
 	// Set Gin mode
 	if cfg.Server.Port == "8080" {
 		gin.SetMode(gin.DebugMode)
@@ -109,11 +110,25 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 		// Public slider routes
 		api.GET("/sliders", sliderHandler.GetSliders) // GET /api/sliders (returns active slides with settings)
 
+		// Public order routes (guest checkout allowed)
+		orders := api.Group("/orders")
+		{
+			orders.POST("", orderHandler.CreateOrder) // POST /api/orders (no auth required - guest or authenticated)
+		}
+
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			protected.GET("/profile", authHandler.GetProfile)
+
+			// Protected order routes (require authentication)
+			protectedOrders := protected.Group("/orders")
+			{
+				protectedOrders.GET("", orderHandler.GetOrders)            // GET /api/orders (list orders)
+				protectedOrders.GET("/:id", orderHandler.GetOrder)         // GET /api/orders/:id (get order details)
+				protectedOrders.PUT("/:id", orderHandler.UpdateOrder)      // PUT /api/orders/:id (update order)
+			}
 
 			// Admin routes
 			admin := protected.Group("/admin")
@@ -143,6 +158,12 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 				{
 					adminSettings.GET("", sliderHandler.GetSliderSettings)    // GET /api/admin/slider-settings
 					adminSettings.PUT("", sliderHandler.UpdateSliderSettings) // PUT /api/admin/slider-settings
+				}
+
+				// Admin order management
+				adminOrders := admin.Group("/orders")
+				{
+					adminOrders.PATCH("/:id/status", orderHandler.UpdateOrderStatus) // PATCH /api/admin/orders/:id/status (update status)
 				}
 			}
 		}

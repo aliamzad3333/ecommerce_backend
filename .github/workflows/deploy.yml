@@ -152,7 +152,21 @@ jobs:
           # Ensure uploads directory exists with proper permissions
           sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/products
           sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/slider
-          sudo chown -R www:www /www/wwwroot/ecommerce-backend/uploads
+          
+          # Set ownership and permissions for nginx access
+          # Use www-data:www-data (common nginx user) or www:www-data for compatibility
+          sudo chown -R www-data:www-data /www/wwwroot/ecommerce-backend/uploads || sudo chown -R www:www-data /www/wwwroot/ecommerce-backend/uploads
+          
+          # Set directory permissions (755 = readable/executable by nginx)
+          sudo find /www/wwwroot/ecommerce-backend/uploads -type d -exec chmod 755 {} \;
+          
+          # Set file permissions (644 = readable by nginx)
+          sudo find /www/wwwroot/ecommerce-backend/uploads -type f -exec chmod 644 {} \;
+          
+          # Ensure parent directories are traversable
+          sudo chmod 755 /www/wwwroot/ecommerce-backend 2>/dev/null || true
+          
+          echo "✅ Upload directory permissions set for nginx access"
           
           # Restart the service (restart handles stop+start better)
           sudo systemctl restart ecommerce-backend
