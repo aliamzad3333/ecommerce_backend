@@ -475,11 +475,6 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	}
 
 	orderID := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(orderID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
-		return
-	}
 
 	var req models.UpdateOrderStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -497,8 +492,18 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	defer cancel()
 
 	// Fetch existing order to check current status
+	// Try to find by custom order_id first (e.g., broshopbd_000001)
 	var order models.Order
-	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&order)
+	err := collection.FindOne(ctx, bson.M{"order_id": orderID}).Decode(&order)
+
+	// If not found, try MongoDB ObjectID (for backward compatibility)
+	if err == mongo.ErrNoDocuments {
+		objID, parseErr := primitive.ObjectIDFromHex(orderID)
+		if parseErr == nil {
+			err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&order)
+		}
+	}
+
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
@@ -529,7 +534,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		update["$set"].(bson.M)["admin_notes"] = *req.AdminNotes
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	result, err := collection.UpdateOne(ctx, bson.M{"order_id": order.OrderID}, update)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
 		return
@@ -540,9 +545,9 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	// Fetch updated order
+	// Fetch updated order to return in response
 	var updatedOrder models.Order
-	collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&updatedOrder)
+	collection.FindOne(ctx, bson.M{"order_id": order.OrderID}).Decode(&updatedOrder)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order status updated successfully",
