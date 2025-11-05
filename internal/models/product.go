@@ -54,6 +54,7 @@ type Product struct {
 	ID            primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Name          string             `json:"name" bson:"name" validate:"required,min=2,max=100"`
 	Price         float64            `json:"price" bson:"price" validate:"required,gt=0"`
+	OfferPrice    float64            `json:"offer_price" bson:"offer_price" validate:"gte=0"`
 	Category      ProductCategory    `json:"category" bson:"category" validate:"required"`
 	ImageURL      string             `json:"image_url" bson:"image_url"`
 	Description   string             `json:"description" bson:"description" validate:"required,min=10,max=1000"`
@@ -69,6 +70,7 @@ type Product struct {
 type CreateProductRequest struct {
 	Name          string  `json:"name" validate:"required,min=2,max=100"`
 	Price         float64 `json:"price" validate:"required,gt=0"`
+	OfferPrice    float64 `json:"offer_price" validate:"gte=0"`
 	Category      string  `json:"category" validate:"required"`
 	Description   string  `json:"description" validate:"required,min=10,max=1000"`
 	Specification string  `json:"specification"`
@@ -80,6 +82,7 @@ type CreateProductRequest struct {
 type UpdateProductRequest struct {
 	Name          *string  `json:"name,omitempty" validate:"omitempty,min=2,max=100"`
 	Price         *float64 `json:"price,omitempty" validate:"omitempty,gt=0"`
+	OfferPrice    *float64 `json:"offer_price,omitempty" validate:"omitempty,gte=0"`
 	Category      *string  `json:"category,omitempty"`
 	Description   *string  `json:"description,omitempty" validate:"omitempty,min=10,max=1000"`
 	Specification *string  `json:"specification,omitempty"`
@@ -92,6 +95,7 @@ type ProductResponse struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
 	Price         float64   `json:"price"`
+	OfferPrice    float64   `json:"offer_price"`
 	Category      string    `json:"category"`
 	ImageURL      string    `json:"image_url"`
 	Description   string    `json:"description"`
@@ -138,6 +142,7 @@ func (p *Product) ToResponseWithBaseURL(baseURL string) ProductResponse {
 		ID:            p.ID.Hex(),
 		Name:          p.Name,
 		Price:         p.Price,
+		OfferPrice:    p.OfferPrice,
 		Category:      string(p.Category),
 		ImageURL:      imageURL,
 		Description:   p.Description,

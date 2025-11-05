@@ -82,6 +82,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		ID:            primitive.NewObjectID(),
 		Name:          req.Name,
 		Price:         req.Price,
+		OfferPrice:    req.OfferPrice,
 		Category:      models.ProductCategory(req.Category),
 		Description:   req.Description,
 		Specification: req.Specification,
@@ -249,6 +250,9 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	}
 	if req.Price != nil {
 		update["$set"].(bson.M)["price"] = *req.Price
+	}
+	if req.OfferPrice != nil {
+		update["$set"].(bson.M)["offer_price"] = *req.OfferPrice
 	}
 	if req.Category != nil {
 		if !models.IsValidCategory(*req.Category) {
