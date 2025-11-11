@@ -552,5 +552,11 @@ func saveUploadedFile(file multipart.File, dst string) error {
 	defer out.Close()
 
 	_, err = io.Copy(out, file)
+	if err != nil {
+		return err
+	}
+
+	// Set file permissions to 0644 (readable by nginx)
+	err = os.Chmod(dst, 0644)
 	return err
 }
