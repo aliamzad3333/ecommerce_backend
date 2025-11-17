@@ -53,9 +53,10 @@ func New() (*Server, error) {
 	productHandler := handlers.NewProductHandler(db)
 	sliderHandler := handlers.NewSliderHandler(db)
 	orderHandler := handlers.NewOrderHandler(db, jwtManager)
+	facebookHandler := handlers.NewFacebookHandler(db)
 
 	// Setup router
-	router := setupRouter(cfg, log, authHandler, productHandler, sliderHandler, orderHandler, jwtManager)
+	router := setupRouter(cfg, log, authHandler, productHandler, sliderHandler, orderHandler, facebookHandler, jwtManager)
 
 	return &Server{
 		config: cfg,
@@ -66,7 +67,7 @@ func New() (*Server, error) {
 }
 
 // setupRouter configures the HTTP router
-func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, sliderHandler *handlers.SliderHandler, orderHandler *handlers.OrderHandler, jwtManager *utils.JWTManager) *gin.Engine {
+func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.AuthHandler, productHandler *handlers.ProductHandler, sliderHandler *handlers.SliderHandler, orderHandler *handlers.OrderHandler, facebookHandler *handlers.FacebookHandler, jwtManager *utils.JWTManager) *gin.Engine {
 	// Set Gin mode
 	if cfg.Server.Port == "8080" {
 		gin.SetMode(gin.DebugMode)
@@ -164,6 +165,15 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 				adminOrders := admin.Group("/orders")
 				{
 					adminOrders.PATCH("/:id/status", orderHandler.UpdateOrderStatus) // PATCH /api/admin/orders/:id/status (update status)
+				}
+
+				// Admin Facebook token management
+				adminFacebook := admin.Group("/facebook")
+				{
+					adminFacebook.POST("/token", facebookHandler.SaveToken)       // POST /api/admin/facebook/token (save/update token)
+					adminFacebook.GET("/token", facebookHandler.GetToken)          // GET /api/admin/facebook/token (get token info)
+					adminFacebook.GET("/token/value", facebookHandler.GetTokenValue) // GET /api/admin/facebook/token/value (get actual token)
+					adminFacebook.DELETE("/token", facebookHandler.DeleteToken)   // DELETE /api/admin/facebook/token (deactivate token)
 				}
 			}
 		}
