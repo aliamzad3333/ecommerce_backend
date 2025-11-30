@@ -42,7 +42,41 @@ jobs:
         go mod download
         go build -o ecommerce-backend main.go
     
-    - name: Test SSH connection
+    - name: Test SSH connection (with retries)
+      uses: appleboy/ssh-action@v1.0.0
+      continue-on-error: true
+      id: ssh_test
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        timeout: 30s
+        command_timeout: 10s
+        debug: true
+        script: |
+          echo "✅ SSH connection successful"
+          echo "Server: $(hostname)"
+          echo "Date: $(date)"
+    
+    - name: Retry SSH connection if failed
+      if: steps.ssh_test.outcome == 'failure'
+      uses: appleboy/ssh-action@v1.0.0
+      continue-on-error: true
+      id: ssh_retry1
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        timeout: 30s
+        command_timeout: 10s
+        script: |
+          echo "✅ SSH connection successful (retry 1)"
+          echo "Server: $(hostname)"
+    
+    - name: Final SSH connection attempt
+      if: steps.ssh_retry1.outcome == 'failure'
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.HOST }}
@@ -51,13 +85,10 @@ jobs:
         port: ${{ secrets.PORT }}
         timeout: 60s
         command_timeout: 30s
-        debug: true
         script: |
-          echo "✅ SSH connection successful"
+          echo "✅ SSH connection successful (final attempt)"
           echo "Server: $(hostname)"
           echo "Date: $(date)"
-          echo "Testing connectivity..."
-          ping -c 2 localhost || echo "Ping test completed"
     
     - name: Prepare server for deployment
       uses: appleboy/ssh-action@v1.0.0
