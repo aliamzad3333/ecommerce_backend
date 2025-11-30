@@ -1,5 +1,6 @@
 name: Deploy to Server
 
+# Auto-deployment workflow for ecommerce backend
 on:
   push:
     branches: [ main, master ]
