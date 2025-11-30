@@ -49,10 +49,15 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
+        timeout: 60s
+        command_timeout: 30s
+        debug: true
         script: |
           echo "✅ SSH connection successful"
           echo "Server: $(hostname)"
           echo "Date: $(date)"
+          echo "Testing connectivity..."
+          ping -c 2 localhost || echo "Ping test completed"
     
     - name: Prepare server for deployment
       uses: appleboy/ssh-action@v1.0.0
