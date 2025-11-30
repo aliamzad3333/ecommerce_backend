@@ -199,6 +199,73 @@ jobs:
           
           echo "✅ Upload directory setup complete (permanent fix applied)"
           
+          # PERMANENT FIX: Ensure nginx is configured to proxy /uploads/ requests
+          echo ""
+          echo "Configuring nginx to proxy /uploads/ requests to backend..."
+          NGINX_CONFIG="/www/server/panel/vhost/nginx/ecommerce.conf"
+          if sudo grep -q "location.*^~.*/uploads/" "$NGINX_CONFIG" 2>/dev/null; then
+            echo "✅ Nginx /uploads/ location already configured"
+          else
+            echo "Updating nginx configuration to include /uploads/ proxy..."
+            if [ -f "$NGINX_CONFIG" ]; then
+              sudo cp "$NGINX_CONFIG" "${NGINX_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" || true
+            fi
+            TEMP_BLOCK=$(mktemp)
+            echo "    # Uploads - proxy to Go backend (^~ gives this priority over regex)" > "$TEMP_BLOCK"
+            echo "    # This ensures images are always accessible after deployment" >> "$TEMP_BLOCK"
+            echo "    location ^~ /uploads/ {" >> "$TEMP_BLOCK"
+            echo "        proxy_pass http://127.0.0.1:8080;" >> "$TEMP_BLOCK"
+            echo "        proxy_set_header Host \$host;" >> "$TEMP_BLOCK"
+            echo "        proxy_set_header X-Real-IP \$remote_addr;" >> "$TEMP_BLOCK"
+            echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> "$TEMP_BLOCK"
+            echo "        proxy_set_header X-Forwarded-Proto \$scheme;" >> "$TEMP_BLOCK"
+            echo "        add_header Access-Control-Allow-Origin *;" >> "$TEMP_BLOCK"
+            echo "        add_header Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\";" >> "$TEMP_BLOCK"
+            echo "        add_header Access-Control-Allow-Headers \"Content-Type, Authorization\";" >> "$TEMP_BLOCK"
+            echo "        expires 1y;" >> "$TEMP_BLOCK"
+            echo "        add_header Cache-Control \"public, immutable\";" >> "$TEMP_BLOCK"
+            echo "    }" >> "$TEMP_BLOCK"
+            echo "" >> "$TEMP_BLOCK"
+            sudo sed -i "/location \/api\//r $TEMP_BLOCK" "$NGINX_CONFIG"
+            rm -f "$TEMP_BLOCK"
+            if sudo nginx -t 2>/dev/null; then
+              sudo systemctl reload nginx
+              echo "✅ Nginx configuration updated and reloaded"
+            else
+              echo "⚠️ WARNING: Nginx config test failed, restoring backup..."
+              BACKUP_FILE=$(ls -t "${NGINX_CONFIG}.backup."* 2>/dev/null | head -1)
+              if [ -n "$BACKUP_FILE" ]; then
+                sudo cp "$BACKUP_FILE" "$NGINX_CONFIG" || true
+                sudo nginx -t && sudo systemctl reload nginx
+              fi
+            fi
+          fi
+          echo ""
+          
+          # DIAGNOSTIC: Check where images actually are
+          echo ""
+          echo "=== DIAGNOSTIC: Checking image locations ==="
+          echo "Binary location:"
+          ls -la /www/wwwroot/ecommerce-backend/ecommerce-backend 2>/dev/null || echo "Binary not found"
+          echo ""
+          echo "Current working directory when service runs:"
+          sudo systemctl show ecommerce-backend -p WorkingDirectory --value || echo "Cannot get working directory"
+          echo ""
+          echo "Uploads directory structure:"
+          find /www/wwwroot/ecommerce-backend -name "uploads" -type d 2>/dev/null | head -5
+          echo ""
+          echo "Product images found:"
+          find /www/wwwroot/ecommerce-backend -path "*/uploads/products/*.jpg" -o -path "*/uploads/products/*.jpeg" -o -path "*/uploads/products/*.png" 2>/dev/null | head -10
+          echo ""
+          echo "Slider images found:"
+          find /www/wwwroot/ecommerce-backend -path "*/uploads/slider/*.jpg" -o -path "*/uploads/slider/*.jpeg" -o -path "*/uploads/slider/*.png" 2>/dev/null | head -10
+          echo ""
+          echo "Checking service file for WorkingDirectory:"
+          sudo cat /etc/systemd/system/ecommerce-backend.service 2>/dev/null | grep -i "working\|exec" || echo "Service file not found or cannot read"
+          echo ""
+          echo "=== END DIAGNOSTIC ==="
+          echo ""
+          
           # Restart the service (restart handles stop+start better)
           sudo systemctl restart ecommerce-backend
           sudo systemctl enable ecommerce-backend
