@@ -155,26 +155,49 @@ jobs:
           
           echo "✅ Binary is ready"
           
-            # Ensure uploads directory exists with proper permissions
-            sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/products
-            sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/slider
-
-            # Set ownership and permissions for nginx access
-            # Use root:www-data for uploads (backend runs as root, nginx needs read access)
-            sudo chown -R root:www-data /www/wwwroot/ecommerce-backend/uploads
-
-            # Set directory permissions (755 = readable/executable by nginx)
-            sudo find /www/wwwroot/ecommerce-backend/uploads -type d -exec chmod 755 {} \;
-
-            # Set file permissions (644 = readable by nginx)
-            sudo find /www/wwwroot/ecommerce-backend/uploads -type f -exec chmod 644 {} \;
-
-            # Ensure parent directories are traversable by nginx
-            sudo chmod 755 /www/wwwroot 2>/dev/null || true
-            sudo chmod 755 /www/wwwroot/ecommerce-backend 2>/dev/null || true
-            sudo chmod 755 /www/wwwroot/ecommerce-backend/uploads 2>/dev/null || true
-
-            echo "✅ Upload directory permissions set for nginx access"
+          # PERMANENT FIX: Ensure uploads directory exists with proper permissions
+          # This directory MUST persist across deployments for images to work
+          echo "Setting up uploads directory (permanent fix)..."
+          
+          # Create directories (preserve existing files)
+          sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/products
+          sudo mkdir -p /www/wwwroot/ecommerce-backend/uploads/slider
+          
+          # Set ownership to www:www (matches service user)
+          # This allows the service to write files and nginx to read them
+          sudo chown -R www:www /www/wwwroot/ecommerce-backend/uploads
+          
+          # Set directory permissions (755 = owner can write, others can read/execute)
+          sudo find /www/wwwroot/ecommerce-backend/uploads -type d -exec chmod 755 {} \;
+          
+          # Set file permissions (644 = owner can write, others can read)
+          sudo find /www/wwwroot/ecommerce-backend/uploads -type f -exec chmod 644 {} \;
+          
+          # Ensure parent directories are traversable
+          sudo chmod 755 /www/wwwroot 2>/dev/null || true
+          sudo chmod 755 /www/wwwroot/ecommerce-backend 2>/dev/null || true
+          sudo chmod 755 /www/wwwroot/ecommerce-backend/uploads 2>/dev/null || true
+          
+          # Verify directory exists and is writable
+          if [ ! -d /www/wwwroot/ecommerce-backend/uploads/products ]; then
+            echo "❌ ERROR: uploads/products directory not created"
+            exit 1
+          fi
+          
+          if [ ! -d /www/wwwroot/ecommerce-backend/uploads/slider ]; then
+            echo "❌ ERROR: uploads/slider directory not created"
+            exit 1
+          fi
+          
+          # Test write permissions
+          if sudo -u www touch /www/wwwroot/ecommerce-backend/uploads/products/.test 2>/dev/null; then
+            sudo rm -f /www/wwwroot/ecommerce-backend/uploads/products/.test
+            echo "✅ Upload directory is writable by service user"
+          else
+            echo "⚠️ WARNING: Upload directory may not be writable by service user"
+          fi
+          
+          echo "✅ Upload directory setup complete (permanent fix applied)"
           
           # Restart the service (restart handles stop+start better)
           sudo systemctl restart ecommerce-backend
@@ -200,5 +223,18 @@ jobs:
             echo "Attempt $i: Health check failed, retrying..."
           done
           
+          # Verify uploads directory still exists and is accessible after restart
+          echo "Verifying uploads directory after service restart..."
+          if [ -d /www/wwwroot/ecommerce-backend/uploads/products ] && [ -d /www/wwwroot/ecommerce-backend/uploads/slider ]; then
+            echo "✅ Uploads directories verified after restart"
+          else
+            echo "⚠️ WARNING: Uploads directories missing after restart - application will recreate them"
+          fi
+          
           # Final status check
           sudo systemctl status ecommerce-backend --no-pager -l
+          
+          echo ""
+          echo "🎉 Deployment complete!"
+          echo "📁 Uploads directory: /www/wwwroot/ecommerce-backend/uploads"
+          echo "✅ Images should now be accessible at /uploads/products/ and /uploads/slider/"

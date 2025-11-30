@@ -39,6 +39,11 @@ func New() (*Server, error) {
 	cfg := config.Load()
 	log := logger.New()
 
+	// Ensure uploads directories exist at startup (permanent fix)
+	if err := ensureUploadsDirectories(); err != nil {
+		return nil, fmt.Errorf("failed to create uploads directories: %w", err)
+	}
+
 	// Initialize database
 	db, err := database.NewClient(&cfg.Database)
 	if err != nil {
@@ -223,5 +228,24 @@ func (s *Server) Start() error {
 	}
 
 	s.logger.Info("Server exited")
+	return nil
+}
+
+// ensureUploadsDirectories creates the uploads directory structure if it doesn't exist
+// This ensures images are always accessible, even after deployments
+func ensureUploadsDirectories() error {
+	dirs := []string{
+		"uploads/products",
+		"uploads/slider",
+	}
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+		// Log directory creation for debugging
+		slog.Info("Ensured uploads directory exists", "path", dir)
+	}
+
 	return nil
 }
