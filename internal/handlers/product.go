@@ -14,6 +14,7 @@ import (
 
 	"ecommerce-backend/internal/database"
 	"ecommerce-backend/internal/models"
+	"ecommerce-backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -351,7 +352,7 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 	if product.ImageURL != "" {
 		// Extract filename from URL and delete file
 		filename := filepath.Base(product.ImageURL)
-		imagePath := filepath.Join("uploads", "products", filename)
+		imagePath := filepath.Join(utils.GetUploadsSubPath("products"), filename)
 		os.Remove(imagePath) // Ignore error if file doesn't exist
 	}
 
@@ -394,8 +395,8 @@ func (h *ProductHandler) UploadProductImage(c *gin.Context) {
 		return
 	}
 
-	// Create uploads directory if it doesn't exist
-	uploadDir := "uploads/products"
+	// Create uploads directory if it doesn't exist (use absolute path)
+	uploadDir := utils.GetUploadsSubPath("products")
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -93,7 +94,10 @@ func setupRouter(cfg *config.Config, log *slog.Logger, authHandler *handlers.Aut
 	})
 
 	// Serve static files for uploaded images
-	router.Static("/uploads", "./uploads")
+	// Use absolute path to ensure it works regardless of working directory
+	uploadsPath := utils.GetUploadsPath()
+	router.Static("/uploads", uploadsPath)
+	slog.Info("Serving static files", "path", uploadsPath, "route", "/uploads")
 
 	// API routes
 	api := router.Group("/api")
@@ -234,9 +238,10 @@ func (s *Server) Start() error {
 // ensureUploadsDirectories creates the uploads directory structure if it doesn't exist
 // This ensures images are always accessible, even after deployments
 func ensureUploadsDirectories() error {
+	uploadsPath := utils.GetUploadsPath()
 	dirs := []string{
-		"uploads/products",
-		"uploads/slider",
+		filepath.Join(uploadsPath, "products"),
+		filepath.Join(uploadsPath, "slider"),
 	}
 
 	for _, dir := range dirs {

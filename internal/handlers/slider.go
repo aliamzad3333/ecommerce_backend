@@ -10,6 +10,7 @@ import (
 
 	"ecommerce-backend/internal/database"
 	"ecommerce-backend/internal/models"
+	"ecommerce-backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -61,8 +62,8 @@ func (h *SliderHandler) UploadSliderImage(c *gin.Context) {
 		return
 	}
 
-	// Create uploads directory if it doesn't exist
-	uploadDir := "uploads/slider"
+	// Create uploads directory if it doesn't exist (use absolute path)
+	uploadDir := utils.GetUploadsSubPath("slider")
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -244,7 +245,7 @@ func (h *SliderHandler) DeleteSlider(c *gin.Context) {
 	if err == nil && slider.ImageURL != "" {
 		// Delete image file
 		filename := filepath.Base(slider.ImageURL)
-		imagePath := filepath.Join("uploads", "slider", filename)
+		imagePath := filepath.Join(utils.GetUploadsSubPath("slider"), filename)
 		os.Remove(imagePath) // Ignore error if file doesn't exist
 	}
 
